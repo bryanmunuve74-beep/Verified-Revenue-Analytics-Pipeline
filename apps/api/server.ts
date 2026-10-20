@@ -195,47 +195,47 @@ app.post('/api/checkout', async (req, res) => {
 
     const order = dbResult.rows[0];
     orderId = order.id;
-    const order = dbResult.rows[0];
 
-if (process.env.PAYMENT_MODE === "simulation") {
-  setTimeout(async () => {
-    try {
-      // Simulate a successful payment 75% of the time
-      const success = Math.random() < 0.75;
+    if (process.env.PAYMENT_MODE === "simulation") {
+      setTimeout(async () => {
+        try {
+          // Simulate a successful payment 75% of the time
+          const success = Math.random() < 0.75;
 
-      await pool.query(
-        `
-        UPDATE orders
-        SET status = $1
-        WHERE id = $2
-        `,
-        [
-          success ? "SUCCESS" : "FAILED",
-          order.id,
-        ]
-      );
+          await pool.query(
+            `
+            UPDATE orders
+            SET status = $1
+            WHERE id = $2
+            `,
+            [
+              success ? "SUCCESS" : "FAILED",
+              order.id,
+            ]
+          );
 
-      console.log(
-        `Simulation: Order ${order.id} -> ${
-          success ? "SUCCESS" : "FAILED"
-        }`
-      );
-    } catch (error) {
-      console.error(
-        "Simulation update failed:",
-        error
-      );
+          console.log(
+            `Simulation: Order ${order.id} -> ${
+              success ? "SUCCESS" : "FAILED"
+            }`
+          );
+        } catch (error) {
+          console.error(
+            "Simulation update failed:",
+            error
+          );
+        }
+      }, 3000);
+
+      dbClient.release();
+      return res.json({
+        message: "Simulated payment initiated",
+        order: {
+          id: order.id,
+          status: "PENDING",
+        },
+      });
     }
-  }, 3000);
-
-  return res.json({
-    message: "Simulated payment initiated",
-    order: {
-      id: order.id,
-      status: "PENDING",
-    },
-  });
-}
 
     // ----------------------------------------------
     // 2. Get M-PESA token
@@ -315,7 +315,7 @@ if (process.env.PAYMENT_MODE === "simulation") {
 
 
     // ----------------------------------------------
-    // 6. Save Safaricom request IDs
+    // 6. Save Safaricom request IDs & Enqueue Worker
     // ----------------------------------------------
 
     await dbClient.query(
@@ -333,18 +333,19 @@ if (process.env.PAYMENT_MODE === "simulation") {
         order.id,
       ]
     );
-// Inside your /api/checkout route after a successful STK Push:
-await mpesaQueue.add(
-  'verify-payment',
-  { orderId: order.id, checkoutRequestId: mpesa.CheckoutRequestID },
-  {
-    attempts: 3, // Retry up to 3 times if it fails
-    backoff: {
-      type: 'exponential',
-      delay: 5000, // Wait 5s, then 10s, then 20s between retries
-    },
-  }
-);
+
+    await mpesaQueue.add(
+      'verify-payment',
+      { orderId: order.id, checkoutRequestId: mpesa.CheckoutRequestID },
+      {
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 5000,
+        },
+      }
+    );
+
     dbClient.release();
 
     // ----------------------------------------------
@@ -561,7 +562,6 @@ app.get('/api/orders/:id/status', async (req, res) => {
       }
 
     } catch (mpesaError: any) {
-      // Daraja throws errors (like 400/500) if user hasn't put PIN yet ("The transaction is being processed")
       const errMessage = mpesaError.response?.data?.errorMessage || mpesaError.message;
       console.log(`STK Query waiting state for order ${id}:`, errMessage);
       
