@@ -21,8 +21,15 @@ export function trackEvent(
     return;
   }
 
+  if (!GA_ID) {
+    console.warn(
+      "Google Analytics is disabled because NEXT_PUBLIC_GA_ID is not configured."
+    );
+    return;
+  }
+
   if (!window.gtag) {
-    console.warn("Google Analytics is not loaded yet.");
+    console.warn("Google Analytics has not initialized yet.");
     return;
   }
 
