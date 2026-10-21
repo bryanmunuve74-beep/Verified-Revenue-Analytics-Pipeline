@@ -2,6 +2,7 @@
 "use client";
 
 import { useState } from "react";
+import { trackEvent } from "./analytics";
 
 export default function Home() {
   const [phone, setPhone] = useState("254700000000");
@@ -9,7 +10,7 @@ export default function Home() {
   const [message, setMessage] = useState("");
   const [isWaiting, setIsWaiting] = useState(false);
 
-  // Poll the backend until the order becomes SUCCESS or FAILED
+  // Poll the backend until the order becomes SUCCESS or FAILED.
   const pollOrderStatus = async (orderId: number) => {
     const checkStatus = async () => {
       try {
@@ -33,7 +34,7 @@ export default function Home() {
           return;
         }
 
-        // Still pending, so check again after 5 seconds
+        // Still pending, so check again after 5 seconds.
         setMessage("Check your phone and enter your M-PESA PIN...");
         setTimeout(checkStatus, 5000);
       } catch (error) {
@@ -43,12 +44,18 @@ export default function Home() {
       }
     };
 
-    // Check immediately instead of waiting 5 seconds for the first check
+    // Check immediately instead of waiting 5 seconds for the first check.
     checkStatus();
   };
 
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // This records the user's attempt to begin checkout, not a successful payment.
+    trackEvent("begin_checkout", {
+      currency: "KES",
+      value: Number(amount),
+    });
 
     setMessage("Processing...");
     setIsWaiting(true);
@@ -74,7 +81,7 @@ export default function Home() {
           `STK Push sent. Order ID: ${orderId}. Check your phone.`
         );
 
-        // Start polling using the order ID created by the backend
+        // Start polling using the order ID created by the backend.
         pollOrderStatus(orderId);
       } else {
         setMessage(`Error: ${data.error || "Checkout failed"}`);
@@ -94,16 +101,14 @@ export default function Home() {
           Test Checkout
         </h1>
 
-        <form
-          onSubmit={handleCheckout}
-          className="flex flex-col gap-4"
-        >
+        <form onSubmit={handleCheckout} className="flex flex-col gap-4">
           <div>
-            <label className="mb-1 block text-sm font-medium">
+            <label htmlFor="phone-number" className="mb-1 block text-sm font-medium">
               Phone Number
             </label>
 
             <input
+              id="phone-number"
               type="text"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
@@ -112,11 +117,12 @@ export default function Home() {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium">
+            <label htmlFor="checkout-amount" className="mb-1 block text-sm font-medium">
               Amount (KES)
             </label>
 
             <input
+              id="checkout-amount"
               type="number"
               min="1"
               value={amount}
@@ -135,7 +141,7 @@ export default function Home() {
         </form>
 
         {message && (
-          <div className="mt-6 rounded bg-gray-100 p-4 text-center font-medium">
+          <div role="status" className="mt-6 rounded bg-gray-100 p-4 text-center font-medium">
             {message}
           </div>
         )}
@@ -143,4 +149,3 @@ export default function Home() {
     </main>
   );
 }
-
