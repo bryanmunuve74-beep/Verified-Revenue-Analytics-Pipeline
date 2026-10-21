@@ -1,36 +1,47 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Verified Revenue & Analytics Pipeline — Web App
 
-## Getting Started
+## GA4 setup
 
-First, run the development server:
+1. In the GA4 property, create or select a web data stream and copy its Measurement ID (it starts with `G-`).
+2. Create `.env.local` in this directory (`apps/web/.env.local`) with:
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+   ```dotenv
+   NEXT_PUBLIC_GA_ID=G-YOUR_MEASUREMENT_ID
+   ```
+
+3. Keep `.env.local` local; do not commit it.
+4. Start the web app on port 3001:
+
+   ```powershell
+   npm run dev -- --port 3001
+   ```
+
+The layout loads the Google tag when `NEXT_PUBLIC_GA_ID` is set. Local development sets GA4 debug mode so events can be inspected in GA4 DebugView. The checkout form sends a `begin_checkout` event. Page views are sent by the tag.
+
+## Cypress test setup
+
+From `apps/web`, install Cypress and update the lockfile:
+
+```powershell
+npm install --save-dev cypress
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+With the web app running on port 3001, open Cypress:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```powershell
+npm run cypress:open
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Or run the end-to-end test in the terminal:
 
-## Learn More
+```powershell
+npm run cypress:run
+```
 
-To learn more about Next.js, take a look at the following resources:
+The test stubs the checkout API and order-status API, so it does not send a real M-PESA prompt. It checks that the page loads the Google tag and that submitting checkout sends a GA4 `begin_checkout` request. The test requires a valid local `NEXT_PUBLIC_GA_ID` and a browser/network environment where the Google tag can load.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Interpreting the result
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+A passing Cypress test verifies that the browser sends the expected event request. Check GA4 DebugView separately to confirm that GA4 receives the event. DebugView/Realtime are for validation; standard reports can take longer to populate.
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+This milestone covers frontend event tracking and repeatable synthetic test activity. It does not implement server-side verified `purchase` tracking.
